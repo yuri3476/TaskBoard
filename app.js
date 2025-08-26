@@ -3,21 +3,19 @@ const { useState, useEffect, useRef } = React;
 const dndIsReady = !!window.ReactBeautifulDnd;
 const { DragDropContext, Droppable, Draggable } = dndIsReady ? window.ReactBeautifulDnd : { DragDropContext: null, Droppable: null, Draggable: null };
 
-const KANBAN_STATUSES = ['A Fazer', 'Pronto', 'Bloqueado'];
+const KANBAN_STATUSES = ['Iniciado', 'em anki', 'anki finalizado', 'revisar', 'suspenso'];
 
 // --- COMPONENTES ---
 
-// Componente de Tooltip separado para flutuar sobre a UI
 const Tooltip = ({ content, position }) => {
   if (!content || !position) return null;
 
-  // Estilo para posicionar o tooltip abaixo do card
   const style = {
     position: 'fixed',
-    top: `${position.bottom + 8}px`, // 8px abaixo do card
-    left: `${position.left + position.width / 2}px`, // Centralizado horizontalmente com o card
+    top: `${position.bottom + 8}px`,
+    left: `${position.left + position.width / 2}px`,
     transform: 'translateX(-50%)',
-    zIndex: 100, // Garante que fique sobre todos os outros elementos
+    zIndex: 100,
   };
 
   return (
@@ -28,25 +26,26 @@ const Tooltip = ({ content, position }) => {
   );
 };
 
-
 const TaskCard = ({ task, onEditTask, index, onDeleteTask, onShowTooltip, onHideTooltip }) => {
   const getStatusColor = (status) => {
     switch (status) {
-      case 'Pronto': return 'border-l-green-500';
-      case 'Bloqueado': return 'border-l-red-500';
-      default: return 'border-l-blue-500';
+      case 'anki finalizado': return 'border-l-green-500';
+      case 'suspenso': return 'border-l-red-500';
+      case 'em anki': return 'border-l-yellow-500';
+      case 'revisar': return 'border-l-purple-500';
+      case 'Iniciado':
+      default:
+        return 'border-l-blue-500';
     }
   };
 
   const handleDeleteClick = (e) => {
     e.stopPropagation();
-    const confirmDelete = confirm(`Tem certeza que deseja excluir a tarefa "${task.Tarefa}"?`);
-    if (confirmDelete) {
+    if (confirm(`Tem certeza que deseja excluir a tarefa "${task.Tarefa}"?`)) {
       onDeleteTask(task.id);
     }
   };
 
-  // Lida com a entrada do mouse para mostrar o tooltip
   const handleMouseEnter = (e) => {
     if (task.Descrição) {
       const rect = e.currentTarget.getBoundingClientRect();
@@ -57,8 +56,6 @@ const TaskCard = ({ task, onEditTask, index, onDeleteTask, onShowTooltip, onHide
   return (
     <Draggable draggableId={task.id.toString()} index={index}>
       {(provided, snapshot) => {
-        // CORREÇÃO: O useEffect foi movido para dentro do escopo do Draggable,
-        // onde 'snapshot' existe, resolvendo o erro que causava a tela branca.
         useEffect(() => {
             if (snapshot.isDragging) {
                 onHideTooltip();
@@ -92,7 +89,7 @@ const TaskModal = ({ isOpen, onClose, onSave, task }) => {
   const [currentTask, setCurrentTask] = useState({});
   
   useEffect(() => {
-    setCurrentTask(task ? {...task} : { Tarefa: '', Descrição: '', Status: 'A Fazer' });
+    setCurrentTask(task ? {...task} : { Tarefa: '', Descrição: '', Status: 'Iniciado' });
   }, [task, isOpen]);
 
   const handleChange = (e) => {
@@ -120,7 +117,7 @@ const TaskModal = ({ isOpen, onClose, onSave, task }) => {
         </div>
         <div>
             <label className="block text-sm font-medium text-gray-700">Status</label>
-            <select name="Status" value={currentTask.Status || 'A Fazer'} onChange={handleChange} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+            <select name="Status" value={currentTask.Status || 'Iniciado'} onChange={handleChange} className="mt-1 block w-full p-2 border border-gray-300 rounded-md">
                 {KANBAN_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
         </div>
@@ -139,7 +136,7 @@ const TaskModal = ({ isOpen, onClose, onSave, task }) => {
 
 const KanbanBoard = ({ tasks, onEditTask, onDeleteTask, onShowTooltip, onHideTooltip }) => { 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
             {KANBAN_STATUSES.map(status => (
                 <Droppable key={status} droppableId={status}>
                     {(provided, snapshot) => (
@@ -172,17 +169,13 @@ const KanbanBoard = ({ tasks, onEditTask, onDeleteTask, onShowTooltip, onHideToo
 
 
 function App() {
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzgMfX6ls0z5o4hM5ja-cHbggZRp7BqfnyxzpXy_qgePP7iqHg4X3fegwiWGTA5r1Ry/exec';
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxLEswk7HJLv0TFs9GFqDY8ftPf5PyuaYxT8qJBncT-9qI99zDS6g6txhQgJCppz_3y/exec';
   const [tasks, setTasks] = useState([]);
-  const [sheetNames, setSheetNames] = useState([]);
-  const [currentSheetName, setCurrentSheetName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
-  const [isAddSheetModalOpen, setIsAddSheetModalOpen] = useState(false);
-  const [newSheetName, setNewSheetName] = useState('');
   const saveTimeout = useRef(null);
   const [tooltip, setTooltip] = useState({ content: null, position: null });
 
@@ -193,30 +186,32 @@ function App() {
   const handleHideTooltip = () => {
     setTooltip({ content: null, position: null });
   };
-
-  useEffect(() => {
-    setIsLoading(true);
-    fetch(`${APPS_SCRIPT_URL}?action=getSheetNames`)
-      .then(res => res.json())
-      .then(response => { if(response.status === 'success') { setSheetNames(response.data); if (response.data.length > 0) { setCurrentSheetName(response.data[0]); } else { setIsLoading(false); } } else { throw new Error(response.message || "Erro na API."); } })
-      .catch(err => { setError("Falha ao carregar projetos: " + err.message); setIsLoading(false); });
-  }, []);
-
-  useEffect(() => {
-    if (!currentSheetName) return;
-    if (saveTimeout.current) { clearTimeout(saveTimeout.current); setIsSaving(false); }
-    setIsLoading(true);
-    fetch(`${APPS_SCRIPT_URL}?action=getTasks&sheetName=${encodeURIComponent(currentSheetName)}`)
-      .then(res => res.json())
-      .then(response => { if(response.status === 'success') { setTasks(response.data); } else { throw new Error(response.message || "Erro na API."); } setIsLoading(false); })
-      .catch(err => { setError(`Falha ao carregar tarefas: ` + err.message); setIsLoading(false); });
-  }, [currentSheetName]);
   
-  const triggerSave = (tasksToSave, sheetNameToSave) => {
+  useEffect(() => {
+    setIsLoading(true);
+    // CORRIGIDO: Removido o parâmetro 'sheetName' desnecessário.
+    fetch(`${APPS_SCRIPT_URL}?action=getTasks`)
+      .then(res => res.json())
+      .then(response => { 
+          if(response.status === 'success') { 
+              setTasks(response.data); 
+          } else { 
+              throw new Error(response.message || "Erro na API. Verifique se a planilha 'Kanban' existe."); 
+          } 
+          setIsLoading(false); 
+      })
+      .catch(err => { 
+          setError(`Falha ao carregar tarefas: ${err.message}`); 
+          setIsLoading(false); 
+      });
+  }, []);
+  
+  const triggerSave = (tasksToSave) => {
     if (saveTimeout.current) { clearTimeout(saveTimeout.current); }
     setIsSaving(true);
     saveTimeout.current = setTimeout(() => {
-      const dataToPost = { action: 'saveTasks', sheetName: sheetNameToSave, payload: tasksToSave };
+      // CORRIGIDO: Removida a propriedade 'sheetName' desnecessária do corpo da requisição.
+      const dataToPost = { action: 'saveTasks', payload: tasksToSave };
       fetch(APPS_SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(dataToPost) })
       .then(res => res.json())
       .then(data => { if(data.status !== 'success'){ throw new Error(data.message || "Erro ao salvar."); } })
@@ -227,7 +222,7 @@ function App() {
 
   const updateTasksAndTriggerSave = (newTasks) => {
     setTasks(newTasks);
-    triggerSave(newTasks, currentSheetName);
+    triggerSave(newTasks);
   };
   
   const handleSaveTask = (taskToSave) => {
@@ -239,7 +234,7 @@ function App() {
         ...taskToSave, 
         id: `task-${Date.now()}`,
         Descrição: taskToSave.Descrição || '',
-        Status: taskToSave.Status || 'A Fazer'
+        Status: taskToSave.Status || 'Iniciado'
       };
       newTasks = [...tasks, newTask];
     }
@@ -265,42 +260,18 @@ function App() {
     setEditingTask(null);
     setIsTaskModalOpen(true);
   };
-
-  const handleCreateNewSheet = () => {
-    const trimmedSheetName = newSheetName.trim();
-    if (!trimmedSheetName) { alert("O nome do projeto não pode estar em branco."); return; }
-    if (sheetNames.some(name => name.toLowerCase() === trimmedSheetName.toLowerCase())) { alert(`O projeto "${trimmedSheetName}" já existe.`); return; }
-    const dataToPost = { action: 'createSheet', sheetName: trimmedSheetName };
-    fetch(APPS_SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(dataToPost) })
-    .then(res => res.json())
-    .then(response => { if(response.status === 'success') { setSheetNames([...sheetNames, trimmedSheetName]); setCurrentSheetName(trimmedSheetName); setIsAddSheetModalOpen(false); setNewSheetName(''); } else { alert("Erro do servidor: " + (response.message || "Erro desconhecido.")); } })
-    .catch(err => alert("Erro de comunicação ao criar projeto."));
-  };
   
   const renderContent = () => {
-    if (isLoading && sheetNames.length === 0) { return <div className="text-center text-gray-500">Carregando seus projetos...</div>; }
-    if (!currentSheetName) { return (<div className="text-center bg-white p-10 rounded-lg shadow-md"><h2 className="text-xl font-semibold text-gray-700">Nenhum projeto encontrado.</h2><p className="text-gray-500 my-4">Crie seu primeiro projeto para começar.</p><button onClick={() => setIsAddSheetModalOpen(true)} className="w-full max-w-xs mx-auto bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700">Criar Novo Projeto</button></div>); }
+    if (isLoading) { return <div className="text-center text-gray-500">Carregando tarefas...</div>; }
+    
     return (
       <DragDropContext onDragEnd={handleDragEnd}>
         <div>
-          <div className="bg-white p-4 rounded-lg shadow-md mb-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <label htmlFor="sheet-selector" className="block text-sm font-medium text-gray-700">Projeto Atual</label>
-                <div className="flex gap-2 items-center mt-1">
-                  <select id="sheet-selector" value={currentSheetName} onChange={(e) => setCurrentSheetName(e.target.value)} className="flex-grow p-2 border border-gray-300 rounded-md">
-                    {sheetNames.map(name => (<option key={name} value={name}>{name}</option>))}
-                  </select>
-                  <button onClick={() => setIsAddSheetModalOpen(true)} className="p-2 bg-green-500 text-white rounded-md hover:bg-green-600" title="Adicionar Novo Projeto">+</button>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                  {isSaving && <span className="text-sm text-gray-500 animate-pulse">Salvando...</span>}
-                  <button onClick={handleOpenNewTaskModal} className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">+ Adicionar Tarefa</button>
-              </div>
-            </div>
+          <div className="flex justify-end items-center mb-6">
+              {isSaving && <span className="text-sm text-gray-500 animate-pulse mr-4">Salvando...</span>}
+              <button onClick={handleOpenNewTaskModal} className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">+ Adicionar Tarefa</button>
           </div>
-          {isLoading ? <div className="text-center">Carregando tarefas...</div> : <KanbanBoard tasks={tasks} onEditTask={(task) => { setEditingTask(task); setIsTaskModalOpen(true); }} onDeleteTask={handleDeleteTask} onShowTooltip={handleShowTooltip} onHideTooltip={handleHideTooltip} />}
+          <KanbanBoard tasks={tasks} onEditTask={(task) => { setEditingTask(task); setIsTaskModalOpen(true); }} onDeleteTask={handleDeleteTask} onShowTooltip={handleShowTooltip} onHideTooltip={handleHideTooltip} />
         </div>
       </DragDropContext>
     );
@@ -312,9 +283,8 @@ function App() {
       <div className="min-h-screen bg-gray-50 flex flex-col justify-between">
         <div className="w-full">
             <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 w-full">
-              <header className="mb-8 text-center"><h1 className="text-4xl font-bold text-gray-800">Task<span className="text-indigo-600">Board</span> </h1><p className="text-gray-500 mt-1">Conectado diretamente à sua Planilha Google.</p></header>
+              <header className="mb-8 text-center"><h1 className="text-4xl font-bold text-gray-800">Task<span className="text-indigo-600">Board</span> </h1><p className="text-gray-500 mt-1">Seu quadro de tarefas simples e direto.</p></header>
               <TaskModal isOpen={isTaskModalOpen} onClose={() => { setEditingTask(null); setIsTaskModalOpen(false); }} onSave={handleSaveTask} task={editingTask} />
-              {isAddSheetModalOpen && (<div className="fixed inset-0 bg-black bg-opacity-50 z-40 flex justify-center items-center" onClick={() => setIsAddSheetModalOpen(false)}><div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-lg space-y-4" onClick={(e) => e.stopPropagation()}><h2 className="text-xl font-bold text-gray-800">Criar Novo Projeto</h2><input type="text" value={newSheetName} onChange={(e) => setNewSheetName(e.target.value)} className="mt-1 block w-full p-2 border border-gray-300 rounded-md" placeholder="Ex: Lançamento do Produto X"/><div className="flex justify-end gap-4 pt-4 border-t"><button onClick={() => setIsAddSheetModalOpen(false)} className="bg-gray-200 text-gray-800 py-2 px-4 rounded-md hover:bg-gray-300">Cancelar</button><button onClick={handleCreateNewSheet} className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700">Criar Projeto</button></div></div></div>)}
               {error && <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert" onClick={() => setError('')}><p className="cursor-pointer">{error} (clique para fechar)</p></div>}
               {renderContent()}
             </main>
