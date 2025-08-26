@@ -29,10 +29,10 @@ const Tooltip = ({ content, position }) => {
 const TaskCard = ({ task, onEditTask, index, onDeleteTask, onShowTooltip, onHideTooltip }) => {
   const getStatusColor = (status) => {
     switch (status) {
-      case 'anki finalizado': return 'border-l-green-500';
-      case 'suspenso': return 'border-l-red-500';
-      case 'em anki': return 'border-l-yellow-500';
-      case 'revisar': return 'border-l-purple-500';
+      case 'Anki finalizado': return 'border-l-green-500';
+      case 'Suspenso': return 'border-l-red-500';
+      case 'Anki': return 'border-l-yellow-500';
+      case 'Revisar': return 'border-l-purple-500';
       case 'Iniciado':
       default:
         return 'border-l-blue-500';
