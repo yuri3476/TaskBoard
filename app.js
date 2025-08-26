@@ -3,7 +3,7 @@ const { useState, useEffect, useRef } = React;
 const dndIsReady = !!window.ReactBeautifulDnd;
 const { DragDropContext, Droppable, Draggable } = dndIsReady ? window.ReactBeautifulDnd : { DragDropContext: null, Droppable: null, Draggable: null };
 
-const KANBAN_STATUSES = ['Iniciado', 'em anki', 'anki finalizado', 'revisar', 'suspenso'];
+const KANBAN_STATUSES = ['Iniciado', 'Anki', 'Anki finalizado', 'Revisar', 'Suspenso'];
 
 // --- COMPONENTES ---
 
